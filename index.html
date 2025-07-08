@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="https://nolowcodes.com/favicon.ico" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NO&LOW CODES</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.materialdesignicons.com/7.2.96/css/materialdesignicons.min.css" rel="stylesheet" />
+  <script src="https://unpkg.com/alpinejs" defer></script>
+  <style>
+    [x-cloak] {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body x-data="app()" x-init="init()" class="min-h-screen flex flex-col bg-[#f9fafb] text-gray-800 font-sans">
+  <div x-show="pageLoading" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-white">
+    <svg class="animate-spin h-12 w-12 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+  </div>
+
+  <div class="flex-grow max-w-6xl mx-auto w-full px-6 py-8">
+    <header class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-4">
+        <div class="w-20 h-20 bg-black flex items-center justify-center rounded-full">
+          <span class="text-white text-3xl font-bold" x-text="CONFIG.shortBrand"></span>
+        </div>
+        <div>
+          <h1 class="text-xl font-semibold" x-text="CONFIG.brand"></h1>
+          <p class="text-sm text-gray-500" x-text="CONFIG.text.style[lang]"></p>
+          <div class="flex gap-2 mt-2 text-gray-500">
+            <template x-for="(url, key) in CONFIG.socials" :key="key">
+              <a :href="url" target="_blank" :title="key" class="hover:text-black">
+                <i :class="`mdi mdi-${key} text-xl`"></i>
+              </a>
+            </template>
+          </div>
+        </div>
+      </div>
+      <button class="px-3 py-1 border rounded-full bg-white shadow hover:bg-gray-100" @click="toggleLang()">
+        <i class="mdi mdi-translate text-gray-600"></i>
+        <span x-text="lang === 'th' ? 'EN' : 'TH'"></span>
+      </button>
+    </header>
+
+    <section class="mb-6 space-y-4">
+      <input type="text" x-model="searchQuery" @input="productsFeature.applyFilter()" placeholder="ค้นหา..."
+        class="w-full px-4 py-2 border rounded-md shadow-sm" />
+      <div class="max-h-[120px] overflow-y-auto rounded-md border p-2 bg-white shadow-sm">
+        <div class="flex flex-wrap gap-2">
+          <template x-for="tag in productsFeature.allTags" :key="tag">
+            <button @click="toggleTag(tag)" class="px-3 py-1 rounded-full text-sm border"
+              :class="selectedTags.includes(tag) ? 'bg-black text-white border-black' : 'bg-gray-100 text-gray-800 border-gray-300'"
+              x-text="tag"></button>
+          </template>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <template x-for="product in productsFeature.paginated" :key="product.id">
+          <div class="bg-white rounded-xl border hover:shadow transition flex flex-col relative">
+            <template x-if="product.type">
+              <div
+                class="absolute top-2 left-2 text-white text-[10px] px-2 py-1 rounded-full uppercase tracking-wide z-10 shadow"
+                :class="product.type === 'digital' ? 'bg-indigo-600' : 'bg-emerald-600'"
+                x-text="product.type === 'digital' ? (lang === 'th' ? 'ดิจิทัล' : 'Digital') : (lang === 'th' ? 'สินค้าจริง' : 'Physical')">
+              </div>
+            </template>
+            <div class="w-full h-40 bg-gray-100 overflow-hidden">
+              <img :src="product.thumbnail" alt="" class="object-cover w-full h-full cursor-pointer"
+                @click="productModal.open(product)" @error="handleImgError" />
+            </div>
+            <div class="p-4 flex-1 flex flex-col justify-between">
+              <div>
+                <p class="text-xs font-medium text-gray-600 uppercase" x-text="product.title[lang]"></p>
+                <p class="text-sm font-bold text-green-600" x-text="getFormattedPrice(product)"></p>
+                <p class="text-xs text-gray-500 mb-3" x-text="product.desc[lang]"></p>
+                <div class="flex gap-2 mt-2">
+                  <template x-for="icon in product.icons" :key="icon">
+                    <div class="w-7 h-7 bg-gray-100 flex items-center justify-center rounded">
+                      <i :class="`mdi ${icon} text-base text-gray-600`"></i>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="flex justify-center mt-8 space-x-2" x-show="productsFeature.totalPages > 1">
+        <button class="px-3 py-1 rounded bg-gray-200"
+          @click="productsFeature.changePage(productsFeature.currentPage - 1)"
+          :disabled="productsFeature.currentPage === 1">
+          &laquo;
+        </button>
+        <template x-for="page in productsFeature.totalPages" :key="page">
+          <button class="px-3 py-1 rounded"
+            :class="productsFeature.currentPage === page ? 'bg-black text-white' : 'bg-gray-200'"
+            @click="productsFeature.changePage(page)" x-text="page"></button>
+        </template>
+        <button class="px-3 py-1 rounded bg-gray-200"
+          @click="productsFeature.changePage(productsFeature.currentPage + 1)"
+          :disabled="productsFeature.currentPage === productsFeature.totalPages">
+          &raquo;
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div x-show="productModal.show && productModal.product" x-cloak x-transition
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
+    @click.self="productModal.close()">
+    <template x-if="productModal.product">
+      <div class="bg-white rounded-2xl overflow-hidden max-w-2xl w-full max-h-[90vh] shadow-2xl flex flex-col">
+        <img :src="productModal.product.thumbnail" alt="" class="object-cover w-full max-h-[400px]"
+          @error="handleImgError" />
+        <div class="p-6 space-y-4">
+          <h2 class="text-2xl font-semibold" x-text="productModal.product.title[lang]"></h2>
+          <p class="text-gray-600 text-sm" x-text="productModal.product.desc[lang]"></p>
+          <p class="text-green-600 text-sm font-semibold" x-text="getFormattedPrice(productModal.product)">
+          </p>
+        </div>
+        <div class="flex justify-between items-center border-t p-4 bg-white">
+          <div class="flex gap-2">
+            <template x-for="icon in productModal.product.icons" :key="icon">
+              <div class="w-8 h-8 bg-gray-200 flex items-center justify-center rounded">
+                <i :class="`mdi ${icon} text-xl text-gray-600`"></i>
+              </div>
+            </template>
+          </div>
+          <a :href="productModal.product.href.url" :target="productModal.product.href.target"
+            class="px-5 py-2 bg-black text-white rounded-full shadow hover:bg-gray-800">
+            <i class="mdi mdi-arrow-right mr-2"></i>
+            <span x-text="lang === 'th' ? 'ไปยังลิงก์' : 'Visit Link'"></span>
+          </a>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <footer class="text-center text-sm text-gray-400 py-4">
+    <p>
+      &copy; <span x-text="new Date().getFullYear()"></span>
+      <span x-text="CONFIG.brand"></span>.
+      <span x-text="CONFIG.text.footer[lang]"></span>
+    </p>
+  </footer>
+
+  <script>
+    const CONFIG = {
+      brand: "NO&LOW CODES",
+      web: "https://nolowcodes.com",
+      shortBrand: "NLC",
+      socials: {
+        facebook: "https://www.facebook.com/NoLowCode/",
+        github: "https://github.com/siraphoprmutt",
+        youtube: "https://www.youtube.com/@nolowcode",
+        email: "mailto:siraphop.dev@nolowcodes.com",
+        coffee: "https://www.buymeacoffee.com/siraphopole",
+        web: "https://nolowcodes.com",
+      },
+      text: {
+        style: { th: "สไตล์มินิมอล", en: "Minimal Style" },
+        footer: { th: "สงวนลิขสิทธิ์", en: "All rights reserved" },
+      },
+    };
+  </script>
+  <!-- Products JSON -->
+  <script type="application/json" id="product-data">
+  [
+    {
+      "id": 101,
+      "title": {
+        "th": "ระบบแจ้งเตือนวันหมดอายุ",
+        "en": "Expiry Reminder"
+      },
+      "type": "digital",
+      "desc": {
+        "th": "ตั้งแจ้งเตือนล่วงหน้าแบบอัตโนมัติ",
+        "en": "Automatically remind before expiration"
+      },
+      "thumbnail": "https://images.unsplash.com/photo-1581090700227-1e8e8d12e818",
+      "href": {
+        "url": "#",
+        "target": "_blank"
+      },
+      "icons": ["mdi-bell-ring", "mdi-calendar-clock"],
+      "basePrice": {
+        "amount": 149
+      },
+      "rates": {
+        "THB": 1,
+        "USD": 0.028
+      },
+      "tags": ["reminder", "automation"]
+    },
+    {
+      "id": 102,
+      "title": {
+        "th": "ฟอร์มลงทะเบียนแบบกำหนดเอง",
+        "en": "Custom Registration Form"
+      },
+      "type": "digital",
+      "desc": {
+        "th": "สร้างฟอร์มลงทะเบียนพร้อมระบบจัดเก็บ",
+        "en": "Build registration forms with storage"
+      },
+      "thumbnail": "https://images.unsplash.com/photo-1553877522-43269d4ea984",
+      "href": {
+        "url": "#",
+        "target": "_blank"
+      },
+      "icons": ["mdi-form-textbox", "mdi-database"],
+      "basePrice": {
+        "amount": 259
+      },
+      "rates": {
+        "THB": 1,
+        "USD": 0.032
+      },
+      "tags": ["form", "webapp"]
+    },
+    {
+      "id": 103,
+      "title": {
+        "th": "ระบบส่งอีเมลอัตโนมัติ",
+        "en": "Auto Email Sender"
+      },
+      "type": "digital",
+      "desc": {
+        "th": "เชื่อมต่อ Google Sheets กับ Email Automation",
+        "en": "Connect Sheets to automated email"
+      },
+      "thumbnail": "https://images.unsplash.com/photo-1588702547923-7093a6c3ba33",
+      "href": {
+        "url": "#",
+        "target": "_blank"
+      },
+      "icons": ["mdi-email-send", "mdi-google-spreadsheet"],
+      "basePrice": {
+        "amount": 199
+      },
+      "rates": {
+        "THB": 1,
+        "USD": 0.03
+      },
+      "tags": ["email", "automation", "sheets"]
+    },
+    {
+      "id": 104,
+      "title": {
+        "th": "เครื่องคิดเลขการเงิน",
+        "en": "Finance Calculator"
+      },
+      "type": "digital",
+      "desc": {
+        "th": "คำนวณรายรับรายจ่ายผ่านเว็บแอป",
+        "en": "Track income/expense with calculator"
+      },
+      "thumbnail": "https://images.unsplash.com/photo-1556742400-b5b7c512af16",
+      "href": {
+        "url": "#",
+        "target": "_blank"
+      },
+      "icons": ["mdi-calculator-variant", "mdi-chart-line"],
+      "basePrice": {
+        "amount": 89
+      },
+      "rates": {
+        "THB": 1,
+        "USD": 0.026
+      },
+      "tags": ["calculator", "finance", "webapp"]
+    },
+    {
+      "id": 105,
+      "title": {
+        "th": "QR Code สำหรับชำระเงิน",
+        "en": "Payment QR Code"
+      },
+      "type": "physical",
+      "desc": {
+        "th": "สร้างป้าย QR พร้อมชื่อร้าน ส่งถึงบ้าน",
+        "en": "Create custom QR sign for your store"
+      },
+      "thumbnail": "https://images.unsplash.com/photo-1588776814546-bb8fda76b06e",
+      "href": {
+        "url": "#",
+        "target": "_blank"
+      },
+      "icons": ["mdi-qrcode", "mdi-storefront"],
+      "basePrice": {
+        "amount": 159
+      },
+      "rates": {
+        "THB": 1,
+        "USD": 0.029
+      },
+      "tags": ["qrcode", "payment", "store"]
+    },
+    {
+      "id": 106,
+      "title": {
+        "th": "ระบบแจ้งเตือนผ่านไลน์",
+        "en": "Line Notification Bot"
+      },
+      "type": "digital",
+      "desc": {
+        "th": "เชื่อมระบบคุณกับ LINE แจ้งเตือนอัตโนมัติ",
+        "en": "Connect your system to LINE bot alerts"
+      },
+      "thumbnail": "https://images.unsplash.com/photo-1625215006366-8b1939e71c1c",
+      "href": {
+        "url": "#",
+        "target": "_blank"
+      },
+      "icons": ["mdi-message-alert-outline", "mdi-line-scan"],
+      "basePrice": {
+        "amount": 189
+      },
+      "rates": {
+        "THB": 1,
+        "USD": 0.031
+      },
+      "tags": ["line", "notification", "gas"]
+    },
+    {
+      "id": 107,
+      "title": {
+        "th": "รายงานกิจกรรม PDF อัตโนมัติ",
+        "en": "Auto PDF Report Generator"
+      },
+      "type": "digital",
+      "desc": {
+        "th": "สร้างรายงาน PDF จากข้อมูลแบบคลิกเดียว",
+        "en": "Generate PDF reports with one click"
+      },
+      "thumbnail": "https://images.unsplash.com/photo-1580894740700-42c8b0e70b39",
+      "href": {
+        "url": "#",
+        "target": "_blank"
+      },
+      "icons": ["mdi-file-pdf-box", "mdi-table"],
+      "basePrice": {
+        "amount": 229
+      },
+      "rates": {
+        "THB": 1,
+        "USD": 0.034
+      },
+      "tags": ["pdf", "report", "automation"]
+    },
+    {
+      "id": 108,
+      "title": {
+        "th": "สมุดโน้ตพิมพ์ชื่อ",
+        "en": "Personalized Notebook"
+      },
+      "type": "physical",
+      "desc": {
+        "th": "ออกแบบสมุดพร้อมชื่อเจ้าของ",
+        "en": "Custom printed notebook with name"
+      },
+      "thumbnail": "https://images.unsplash.com/photo-1515879218367-8466d910aaa4",
+      "href": {
+        "url": "#",
+        "target": "_blank"
+      },
+      "icons": ["mdi-notebook-edit", "mdi-printer"],
+      "basePrice": {
+        "amount": 120
+      },
+      "rates": {
+        "THB": 1,
+        "USD": 0.027
+      },
+      "tags": ["stationery", "personalized", "gift"]
+    }
+  ]
+  </script>
+
+  <script src="index.js"></script>
+</body>
+
+</html>
